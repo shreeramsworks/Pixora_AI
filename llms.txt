@@ -1,0 +1,18 @@
+# Pixora AI - E-commerce Image Optimization
+
+## Overview
+Pixora AI is an automated SEO tool for e-commerce sellers. It uses computer vision and LLMs to generate optimized metadata from product images.
+
+## Core Capabilities
+- **Visual Analysis**: Detects material, color, style, and category from image pixels.
+- **Platform Optimization**:
+  - **Shopify**: Generates handles, alt text, and structured metafields.
+  - **Etsy**: Generates exactly 13 tags matching the search algorithm.
+  - **Amazon**: Generates A9-optimized titles and bullet points.
+- **Batch Processing**: Handles 50+ images in a single session.
+
+## Usage
+Users upload images -> System analyzes via Gemini 3 Vision -> User downloads CSV.
+
+## Pricing
+Free tier available (50 images/month). No credit card required.
