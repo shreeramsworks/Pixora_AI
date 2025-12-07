@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, memo, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import FileUpload from './components/FileUpload';
@@ -755,7 +754,7 @@ const App: React.FC = () => {
       setFiles(prev => prev.map(f => ({ ...f, status: 'done' })));
     } catch (err: any) {
       console.error(err);
-      setError("Failed to process images. Please check your API key and try again.");
+      setError(err.message || "Failed to process images. Please check your API key and try again.");
       setFiles(prev => prev.map(f => ({ ...f, status: 'error' })));
     } finally {
       setIsProcessing(false);

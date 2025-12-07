@@ -5,6 +5,9 @@ import { AnalysisResult } from "../types";
 let ai: GoogleGenAI | null = null;
 
 const getAiClient = () => {
+  if (!process.env.API_KEY) {
+    throw new Error("API Key is missing. Please check Vercel settings and Redeploy.");
+  }
   if (!ai) {
     ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   }
