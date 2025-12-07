@@ -1,8 +1,15 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { AnalysisResult } from "../types";
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Lazy initialization to prevent top-level crashes if API_KEY is missing on load
+let ai: GoogleGenAI | null = null;
+
+const getAiClient = () => {
+  if (!ai) {
+    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  }
+  return ai;
+};
 
 const SYSTEM_INSTRUCTION = `
 You are ImageSEO-Genius, an expert e-commerce SEO content generator trained on Amazon, Shopify, and Etsy marketplace ranking systems.
@@ -156,13 +163,14 @@ const fileToPart = async (file: File): Promise<{ inlineData: { data: string; mim
 
 export const analyzeImageBatch = async (files: File[]): Promise<AnalysisResult> => {
   try {
+    const client = getAiClient();
     const imageParts = await Promise.all(files.map(file => fileToPart(file)));
     
     // We create a text prompt that maps filenames to the images so the AI knows which is which
     const fileMapPrompt = "Here are the files in this batch:\n" + 
       files.map((f, i) => `Image ${i + 1}: ${f.name}`).join("\n");
 
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: {
         parts: [
