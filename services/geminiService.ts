@@ -14,41 +14,18 @@ const getAiClient = () => {
   return ai;
 };
 
+// Optimized System Instruction: Concise and token-efficient
 const SYSTEM_INSTRUCTION = `
-You are ImageSEO-Genius, an expert e-commerce SEO content generator trained on Amazon, Shopify, and Etsy marketplace ranking systems.
+Analyze uploaded product images for e-commerce SEO (Amazon, Shopify, Etsy).
+Task: Extract visual attributes and generate platform-specific metadata.
 
-UNIVERSAL SEO GUIDELINES (All Platforms):
-1. Start the title with the **primary keyword**.
-2. Use **long-tail keyword phrases** relevant to buyer/commercial intent.
-3. Include product attributes (material, size, color, style, benefits).
-4. Include 12-14 **semantic keyword clusters** (e.g., "gym shoes," "training sneakers," etc.).
-5. Write **unique, non-duplicated copy** with natural language.
-6. Structure description using H1, H2, bullets, and concise paragraphs (Shopify + Google).
-7. Include image SEO instructions: optimized filenames, alt text (≤125 chars).
+Strict Guidelines:
+1. **Amazon**: A9 Algorithm. Titles: [Brand] + [Feature] + [Keywords]. Bullets: Benefit-driven. Backend Keywords: <250 bytes, synonyms.
+2. **Shopify**: Google SEO. Handle: lowercase-hyphenated. Metafields: Structured data.
+3. **Etsy**: Tagging. EXACTLY 13 tags. Multi-word phrases. Title: Front-load keywords.
+4. **Visual Analysis**: Be specific (e.g., "Crimson" vs "Red", "Silk" vs "Satin").
 
-🛒 AMAZON RULES (A9 Algorithm):
-- Title: 150–200 characters, primary keyword first, include brand, material, benefit, use case.
-- Bullet Points: 5 bullets with keywords, benefits, features.
-- Backend Keywords: 250 characters, no commas, no brand names, include synonyms and misspellings.
-- Image: 1600px+, pure white background.
-
-🛍 SHOPIFY RULES (Google SEO):
-- Title: 50–70 characters, primary keyword first.
-- Description: Include headings, bullets, and care instructions.
-- URL handle and filename must include keywords.
-- Image Alt Text: Descriptive, ≤125 chars, keyword-rich but not stuffed.
-
-🎨 ETSY RULES:
-- Title: 140 characters max, long-tail keywords separated by commas.
-- Tags: Use all 13 tags with high-ranking phrases.
-- Attributes: Color, material, style, use cases.
-
-OUTPUT CONTRACT:
-- Analyze the uploaded images to detect product attributes.
-- Respond in valid JSON matching the schema exactly.
-- Group variants logically (same variant_group_id for same product).
-- If info is unclear, make a reasonable guess (e.g. "likely cotton").
-- Do not output markdown code blocks, just the raw JSON.
+Output strictly valid JSON matching the schema. No markdown.
 `;
 
 const RESPONSE_SCHEMA: Schema = {
@@ -146,39 +123,79 @@ const RESPONSE_SCHEMA: Schema = {
   required: ["images", "batch_summary"]
 };
 
-// Helper to convert File to Base64
+// Helper: Compress Image to prevent huge payloads (Speed Optimization)
+const compressImage = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                // Resize to max 1024px (sufficient for AI vision, drastically reduces size)
+                const MAX_SIZE = 1024; 
+
+                if (width > height) {
+                    if (width > MAX_SIZE) {
+                        height *= MAX_SIZE / width;
+                        width = MAX_SIZE;
+                    }
+                } else {
+                    if (height > MAX_SIZE) {
+                        width *= MAX_SIZE / height;
+                        height = MAX_SIZE;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    reject(new Error("Could not get canvas context"));
+                    return;
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Export as JPEG with 0.8 quality
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                resolve(dataUrl.split(',')[1]); // Remove "data:image/jpeg;base64," prefix
+            };
+            img.onerror = (error) => reject(error);
+        };
+        reader.onerror = (error) => reject(error);
+    });
+};
+
 const fileToPart = async (file: File): Promise<{ inlineData: { data: string; mimeType: string } }> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = (reader.result as string).split(',')[1];
-      resolve({
+    const base64Data = await compressImage(file);
+    return {
         inlineData: {
-          data: base64String,
-          mimeType: file.type,
+            data: base64Data,
+            mimeType: 'image/jpeg', // Always converting to JPEG for consistency
         },
-      });
     };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 };
 
 export const analyzeImageBatch = async (files: File[]): Promise<AnalysisResult> => {
   try {
     const client = getAiClient();
+    
+    // Process images in parallel
     const imageParts = await Promise.all(files.map(file => fileToPart(file)));
     
-    // We create a text prompt that maps filenames to the images so the AI knows which is which
-    const fileMapPrompt = "Here are the files in this batch:\n" + 
-      files.map((f, i) => `Image ${i + 1}: ${f.name}`).join("\n");
+    // Create a simplified file map prompt
+    const fileMapPrompt = "Files:\n" + 
+      files.map((f, i) => `Img ${i + 1}: ${f.name}`).join("\n");
 
     const response = await client.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: {
         parts: [
             ...imageParts, 
-            { text: fileMapPrompt + "\nAnalyze these images and provide the SEO data according to the schema." }
+            { text: fileMapPrompt + "\nAnalyze images. Return JSON." }
         ]
       },
       config: {

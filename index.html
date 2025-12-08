@@ -35,8 +35,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- Favicon: Brain/Search Icon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+    <!-- Favicon -->
+    <link rel="icon" href="/logo.svg">
     
     <!-- Structured Data (JSON-LD) for Google Rich Snippets -->
     <script type="application/ld+json">
@@ -122,6 +122,23 @@
       /* Performance */
       .will-change-transform {
         will-change: transform;
+      }
+      
+      /* Spotlight Variables */
+      :root {
+        --mouse-x: 50%;
+        --mouse-y: 50%;
+      }
+
+      /* High Visibility Hover Effect */
+      .hover-glow {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .hover-glow:hover {
+        box-shadow: 0 0 25px rgba(99, 102, 241, 0.4), 0 0 5px rgba(99, 102, 241, 0.2);
+        transform: translateY(-3px);
+        z-index: 10;
+        border-color: rgba(99, 102, 241, 0.4);
       }
     </style>
   <script type="importmap">

@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+  </defs>
+
+  <!-- Outer glowing circle -->
+  <circle
+    cx="60"
+    cy="60"
+    r="52"
+    stroke="url(#grad)"
+    stroke-width="6"
+    fill="none"
+  />
+
+  <!-- Outer P shape -->
+  <path
+    d="M40 28
+       H65
+       Q88 28 88 46
+       Q88 64 65 64
+       H52
+       V92
+       H40
+       Z"
+    stroke="url(#grad)"
+    stroke-width="7"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+
+  <!-- Inner circuit path -->
+  <path
+    d="M45 38
+       V58
+       Q45 65 52 65
+       H63
+       Q75 65 75 52
+       Q75 40 63 40
+       H58"
+    stroke="url(#grad)"
+    stroke-width="3.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+
+  <!-- Nodes -->
+  <circle cx="45" cy="38" r="3.2" fill="#22d3ee" />
+  <circle cx="45" cy="58" r="3.2" fill="#22d3ee" />
+  <circle cx="58" cy="40" r="3.2" fill="#38bdf8" />
+  <circle cx="52" cy="65" r="3.2" fill="#3b82f6" />
+
+  <!-- Lower connection line + node -->
+  <path
+    d="M52 72
+       V86"
+    stroke="url(#grad)"
+    stroke-width="3.2"
+    stroke-linecap="round"
+  />
+  <circle cx="52" cy="86" r="3.4" fill="#2563eb" />
+</svg>

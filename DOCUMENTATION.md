@@ -1,118 +1,169 @@
-# Pixora AI - Architectural & Functional Documentation
 
-## 1. Core Logic & Data Flow
+# Pixora AI - Technical Documentation
 
-The application follows a linear data flow:
-`Upload -> Pre-processing -> AI Analysis -> Visualization -> Export`
+## 1. System Architecture
 
-### Step 1: Image Pre-processing (`fileToPart`)
-Before sending data to Gemini, images are converted to Base64 strings.
--   **Location**: `services/geminiService.ts`
--   **Method**: `FileReader` reads the blob, strips the data URI prefix, and prepares the `inlineData` object required by `@google/genai`.
+Pixora AI is a client-side Single Page Application (SPA) designed for automated e-commerce image optimization. It leverages modern web technologies to provide a seamless, high-performance experience.
 
-### Step 2: AI Analysis (`analyzeImageBatch`)
-We utilizes **Gemini 3 Pro Preview** for its superior vision capabilities.
--   **Input**: Array of Base64 images + A text map of filenames.
--   **System Instruction**: A strictly engineered prompt that defines the "Persona" (SEO Expert) and specific rules for Amazon, Etsy, and Shopify.
--   **Schema Validation**: The API response is forced into a strict JSON schema using the `responseSchema` configuration. This guarantees that the UI never breaks due to malformed LLM output.
+### Core Stack
+*   **Framework**: React 19 (Functional Components + Hooks)
+*   **Build Tool**: Vite (ESBuild based)
+*   **Language**: TypeScript (Strict Mode)
+*   **Styling**: Tailwind CSS (Utility-first) + Custom Animations
+*   **AI Engine**: Google Gemini 3 Pro Preview via `@google/genai` SDK
 
-### Step 3: State Management
-The `App.tsx` component acts as the "Controller".
--   `files` state: Tracks upload progress and preview URLs.
--   `results` state: Stores the parsed JSON response from Gemini.
--   `currentView` state: Manages the virtual routing.
+### Execution Flow
+1.  **User Interaction**: User uploads up to 10 images via drag-and-drop.
+2.  **Pre-processing**: Images are converted to Base64 strings in the browser.
+3.  **AI Request**: The application sends a multimodal payload (Text + Images) to the Gemini API.
+4.  **Schema Validation**: The API response is strictly enforced against a predefined JSON Schema to ensure type safety.
+5.  **Visualization**: Data is rendered in an interactive dashboard with platform-specific views (Shopify, Etsy, Amazon).
+6.  **Export**: Data is converted to a CSV format for bulk import.
 
 ---
 
-## 2. SEO Strategy & Prompt Engineering
+## 2. Component Reference & Parameters
 
-The efficacy of Pixora AI lies in its System Instruction (`services/geminiService.ts`). We enforce specific ranking factors:
-
-### Universal Rules
--   **Semantic Clustering**: We explicitly ask for "12-14 semantic keyword clusters" to capture long-tail traffic.
--   **Attribute Detection**: The AI is forced to identify Material, Color, and Style based on visual pixels, not just user input.
-
-### Platform-Specific Rules implemented:
-
-| Platform | Constraint | Implementation Strategy |
-| :--- | :--- | :--- |
-| **Amazon** | A9 Algorithm | Generates 5 distinct bullet points focusing on "Benefits" over features. Includes hidden "Backend Keywords". |
-| **Etsy** | Query Matching | Generates exactly 13 tags (Etsy's limit). Focuses on "Occasion" (e.g., 'Gift for her') and "Aesthetic" (e.g., 'Boho'). |
-| **Shopify** | Google SEO | Generates clean URL handles (kebab-case) and Alt Text optimized for accessibility and Google Images. |
-
----
-
-## 3. Data Schema
-
-The application relies on a strict TypeScript interface defined in `types.ts` which mirrors the Gemini Response Schema.
-
-```typescript
-interface AnalysisResult {
-  batch_summary: {
-    preset: string;          // e.g., "fashion", "home_decor"
-    primary_category: string;
-  };
-  images: {
-    detected: {
-      material: string;
-      color: string;
-      style: string;
-      // ...
-    };
-    seo: {
-      seo_filename: string;  // heavily weighted for SEO
-      alt_text: string;
-      focus_keywords: string[];
-    };
-    shopify: {
-      handle: string;
-      metafields: { key: string; value: string }[];
-    };
-    etsy: {
-      tags_13: string[];     // Array of exactly 13 strings
-    };
-    amazon: {
-      bullet_points: string[];
-      search_terms_keywords: string[];
-    };
-  }[];
-}
-```
-
----
-
-## 4. Component Documentation
+### `App.tsx` (Root Controller)
+The central hub for state management and routing.
+*   **State**:
+    *   `currentView`: Controls the visible "page" (virtual routing).
+    *   `files`: Array of `UploadedFile` objects representing the queue.
+    *   `results`: Stores the `AnalysisResult` from the AI.
+    *   `activeBlogPost`: Tracks which blog post is currently open.
+*   **Key Functions**:
+    *   `handleStartBatch`: Resets state and scrolls to upload area.
+    *   `handleNavigate`: Updates browser history API and changes view.
 
 ### `FileUpload.tsx`
--   **UX**: Uses a fullscreen drag-and-drop zone.
--   **Visuals**: Features a "breathing" gradient animation and grid pattern overlay.
--   **Logic**: Filters for `image/*` MIME types before accepting files.
+Handles the drag-and-drop zone and file selection.
+*   **Props**:
+    *   `onFilesSelected`: `(files: File[]) => void` - Callback when valid images are dropped.
+    *   `disabled`: `boolean` - Prevents interaction during AI processing.
+
+### `ImageGrid.tsx`
+Displays the queue of images before processing.
+*   **Props**:
+    *   `files`: `UploadedFile[]` - The current queue.
+    *   `onRemove`: `(id: string) => void` - Handler for removing a single image.
+    *   `onClear`: `() => void` - Handler for clearing the entire queue.
 
 ### `ResultsView.tsx`
--   **Dashboard Design**: Displays a comprehensive audit of the generated data.
--   **Interactivity**:
-    -   **Tabs**: Switch between General, Shopify, Etsy, Amazon views.
-    -   **Copy Buttons**: Custom clipboard hook with "Copied!" feedback state.
-    -   **Color Coding**: Attributes (Material, Color, etc.) are semantically colored for quick scanning.
+The main dashboard for viewing AI analysis.
+*   **Props**:
+    *   `data`: `AnalysisResult` - The raw JSON data from Gemini.
+    *   `files`: `UploadedFile[]` - Reference to original files for previews.
+*   **Internal State**:
+    *   `activePlatform`: Switches between 'General', 'Shopify', 'Etsy', 'Amazon' tabs.
 
-### `App.tsx` (The Router)
--   **Clean URL Handling**: Intercepts browser history to render components based on `window.location.pathname` without reloading the page.
--   **SEO Head Injection**: Dynamically updates `<title>` and `<meta name="description">` tags based on the active view to ensure the tool itself is SEO optimized.
+### `TiltCard.tsx` & `Nav3DLink.tsx`
+Wrapper components that apply 3D CSS transforms based on mouse position.
+*   **Props**:
+    *   `children`: React Node.
+    *   `className`: String for Tailwind classes.
+    *   `onClick` / `href`: Standard anchor props (for NavLink).
+
+### `Logo.tsx`
+Renders the SVG logo inline to prevent loading issues.
+*   **Props**:
+    *   `className`: String for sizing (e.g., "w-10 h-10").
 
 ---
 
-## 5. Deployment Guidelines
+## 3. Data Dictionary (Parameters)
 
-1.  **Environment**: Ensure `API_KEY` is set in the production environment variables (e.g., Vercel, Netlify).
-2.  **Build**: Run `npm run build`. This generates a static `dist/` folder.
-3.  **Routing**: Since this is an SPA with custom history routing, configure your host to rewrite all 404s to `index.html`.
-    *   *Netlify*: Create `_redirects` file with `/*  /index.html  200`
-    *   *Vercel*: Configure `rewrites` in `vercel.json`.
+The application relies on a strict interface defined in `types.ts` which mirrors the Gemini Response Schema. These are the parameters available in the application's data flow.
+
+### `AnalysisResult` (Root Object)
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `batch_summary` | Object | High-level context about the uploaded batch. |
+| `images` | Array | List of analysis results per image. |
+
+### `batch_summary`
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `detected_platforms` | String[] | E.g., ["shopify", "amazon"]. Platforms detected based on image style. |
+| `primary_category` | String | The dominant product category (e.g., "Footwear"). |
+| `preset` | String | The detected industry preset (e.g., "fashion", "home_decor"). |
+
+### `ImageResult` (Per Image Analysis)
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `input_filename` | String | Name of the original uploaded file. |
+| `variant_role` | String | AI guess of image role (e.g., "Main", "Back View", "Detail"). |
+| `detected` | Object | Visual attributes extracted by Computer Vision. |
+| `seo` | Object | General SEO metadata usable on any platform. |
+| `shopify` | Object | Shopify-specific fields. |
+| `etsy` | Object | Etsy-specific fields. |
+| `amazon` | Object | Amazon-specific fields. |
+
+#### `detected` (Attributes)
+*   `product_type`
+*   `category`
+*   `material` (e.g., "Leather", "Cotton")
+*   `color` (e.g., "Navy Blue")
+*   `style` (e.g., "Minimalist", "Vintage")
+*   `gender` (e.g., "Unisex", "Womens")
+*   `use_case` (e.g., "Running", "Casual Wear")
+*   `keywords` (Array of visual tags)
+
+#### `seo` (General)
+*   `seo_filename`: Optimized filename (lowercase, hyphenated).
+*   `alt_text`: Descriptive text for accessibility (<125 chars).
+*   `title`: Generic HTML title tag.
+*   `description`: Meta description.
+*   `focus_keywords`: Array of high-value keywords.
+
+#### `shopify` (Platform)
+*   `handle`: Clean URL slug (e.g., `mens-leather-jacket`).
+*   `alt_text`: Same as general but optimized for Google Shopping.
+*   `metafields`: Array of `{ key, value }` pairs for structured data.
+
+#### `etsy` (Platform)
+*   `seo_title`: Front-loaded title with keywords (<140 chars).
+*   `description`: Intro paragraph.
+*   `tags_13`: **Exactly 13** comma-separated strings for Etsy's algorithm.
+
+#### `amazon` (Platform)
+*   `title`: Feature-heavy title (up to 200 chars).
+*   `bullet_points`: Array of 5 benefit-driven feature bullets.
+*   `search_terms_keywords`: Hidden backend keywords string (<250 bytes).
 
 ---
 
-## 6. Future Roadmap
+## 4. AI Service Configuration
 
--   **Integration**: Direct API connection to Shopify Admin to push updates automatically.
--   **Localization**: Support for generating SEO keywords in Spanish, French, and German.
--   **Edit Mode**: Allow users to manually edit the AI-generated text before exporting CSV.
+The connection to Google Gemini is handled in `services/geminiService.ts`.
+
+*   **Model**: `gemini-3-pro-preview` (Selected for superior multimodal reasoning capabilities).
+*   **System Prompt**: Enforces a persona of an "E-commerce SEO Expert". It includes specific instructions for:
+    *   **Amazon A9**: Focus on conversion and benefits.
+    *   **Etsy**: Focus on "Findability" via tags.
+    *   **Google/Shopify**: Focus on semantic relevance and clean data.
+*   **Schema Enforcement**: The `responseMimeType` is set to `application/json` and a strictly typed `responseSchema` is passed to the model API to guarantee that the output matches the `AnalysisResult` TypeScript interface exactly.
+
+---
+
+## 5. Routing & SEO
+
+Since the app is hosted as a static SPA, it uses a custom "Virtual Router".
+
+*   **Clean URLs**: It uses the History API (`pushState`) to simulate real URLs (e.g., `/shopify`) without triggering a server reload.
+*   **Dynamic Head**: The `updateHead` helper dynamically injects `<title>` and `<meta name="description">` tags based on the current view to ensure the tool itself ranks well on search engines and provides accurate social sharing previews.
+
+---
+
+## 6. Security & Stability
+
+To ensure service reliability and prevent abuse, the application implements the following security measures:
+
+*   **Rate Limiting (Client-Side)**:
+    *   **Mechanism**: Strict batch size enforcement in `App.tsx`.
+    *   **Limit**: Maximum `10` images per processing batch (`MAX_BATCH_SIZE`).
+    *   **Behavior**: If a user attempts to upload more than the limit, the application blocks the addition of files and displays an error message. This prevents browser memory crashes and excessive API usage.
+*   **Input Validation**:
+    *   **File Type**: The `FileUpload` component strictly accepts `image/*` MIME types.
+    *   **Content Safety**: The Gemini API has built-in safety filters that block harmful content generation.
+*   **API Key Protection**:
+    *   Keys are injected via environment variables (`process.env.API_KEY`) at build time, ensuring they are not exposed in the source code repository.
