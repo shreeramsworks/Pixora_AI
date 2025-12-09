@@ -1,3 +1,4 @@
+
 // Input/File Types
 export interface UploadedFile {
   id: string;
@@ -28,7 +29,8 @@ export interface SEOMetadata {
   seo_filename: string;
   alt_text: string;
   title?: string;
-  description?: string;
+  description?: string; // Meta Description
+  product_description?: string; // Full Product Description
   tags?: string[];
   focus_keywords?: string[];
 }

@@ -156,6 +156,26 @@ const ResultsView: React.FC<ResultsViewProps> = ({ data, files }) => {
 
                         <div className="space-y-2">
                             <div className="flex justify-between items-center">
+                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Meta Description (Snippet)</label>
+                                <CopyButton text={img.seo.description || ''} />
+                            </div>
+                            <div className="p-4 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed shadow-sm">
+                                {img.seo.description}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Product Description (Content)</label>
+                                <CopyButton text={img.seo.product_description || ''} label="Copy Full Description" />
+                            </div>
+                            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed shadow-inner max-h-40 overflow-y-auto custom-scrollbar">
+                                {img.seo.product_description}
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center">
                                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Alt Text</label>
                                 <CopyButton text={img.seo.alt_text} />
                             </div>

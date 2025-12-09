@@ -20,10 +20,11 @@ Analyze uploaded product images for e-commerce SEO (Amazon, Shopify, Etsy).
 Task: Extract visual attributes and generate platform-specific metadata.
 
 Strict Guidelines:
-1. **Amazon**: A9 Algorithm. Titles: [Brand] + [Feature] + [Keywords]. Bullets: Benefit-driven. Backend Keywords: <250 bytes, synonyms.
-2. **Shopify**: Google SEO. Handle: lowercase-hyphenated. Metafields: Structured data.
-3. **Etsy**: Tagging. EXACTLY 13 tags. Multi-word phrases. Title: Front-load keywords.
-4. **Visual Analysis**: Be specific (e.g., "Crimson" vs "Red", "Silk" vs "Satin").
+1. **Google SEO**: Generate a 'product_description' (80-100 words) that is persuasive, sensory-rich, and includes LSI keywords for indexing. Generate a 'description' (Meta) strictly under 160 characters for high CTR in search snippets.
+2. **Amazon**: A9 Algorithm. Titles: [Brand] + [Feature] + [Keywords]. Bullets: Benefit-driven. Backend Keywords: <250 bytes, synonyms.
+3. **Shopify**: Google SEO. Handle: lowercase-hyphenated. Metafields: Structured data.
+4. **Etsy**: Tagging. EXACTLY 13 tags. Multi-word phrases. Title: Front-load keywords.
+5. **Visual Analysis**: Be specific (e.g., "Crimson" vs "Red", "Silk" vs "Satin").
 
 Output strictly valid JSON matching the schema. No markdown.
 `;
@@ -74,11 +75,12 @@ const RESPONSE_SCHEMA: Schema = {
               seo_filename: { type: Type.STRING },
               alt_text: { type: Type.STRING },
               title: { type: Type.STRING },
-              description: { type: Type.STRING },
+              description: { type: Type.STRING, description: "Meta Description (<160 chars)" },
+              product_description: { type: Type.STRING, description: "Full SEO content for product page (100 words)" },
               tags: { type: Type.ARRAY, items: { type: Type.STRING } },
               focus_keywords: { type: Type.ARRAY, items: { type: Type.STRING } }
             },
-            required: ["seo_filename", "alt_text", "title"]
+            required: ["seo_filename", "alt_text", "title", "description", "product_description"]
           },
           shopify: {
             type: Type.OBJECT,
@@ -122,6 +124,18 @@ const RESPONSE_SCHEMA: Schema = {
   },
   required: ["images", "batch_summary"]
 };
+
+// Chatbot Context - Updated for polite off-topic handling
+const CHAT_SYSTEM_INSTRUCTION = `
+Role: Pixie, Pixora AI Assistant.
+Context: Image SEO tool for Shopify, Etsy, Amazon.
+Features: Visual analysis (Material/Style), Generates Tags/Titles/Bullets/Meta.
+
+Rules:
+1. On-topic (App/SEO): Answer concisely. Use Markdown links (e.g. [Link](/path)).
+2. Support: Ask for query & link [Help](/help).
+3. OFF-TOPIC: Politely decline. E.g., "I'm sorry, but I can only assist with questions related to Pixora AI or e-commerce SEO. Please ask something about our app or business."
+`;
 
 // Helper: Compress Image to prevent huge payloads (Speed Optimization)
 const compressImage = async (file: File): Promise<string> => {
@@ -214,4 +228,33 @@ export const analyzeImageBatch = async (files: File[]): Promise<AnalysisResult> 
     console.error("Gemini Analysis Error:", error);
     throw error;
   }
+};
+
+// Chatbot Function
+export const getChatResponse = async (history: { role: string; text: string }[], newMessage: string): Promise<string> => {
+    try {
+        const client = getAiClient();
+        
+        // Use Gemini 2.5 Flash for fast, responsive text chat
+        const chat = client.chats.create({
+            model: 'gemini-2.5-flash',
+            config: {
+                systemInstruction: CHAT_SYSTEM_INSTRUCTION,
+                maxOutputTokens: 250, // Limit output to save tokens
+            },
+            history: history.map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.text }]
+            }))
+        });
+
+        const response = await chat.sendMessage({
+            message: newMessage
+        });
+
+        return response.text || "I'm sorry, I couldn't generate a response.";
+    } catch (error) {
+        console.error("Chat Error:", error);
+        return "Connection error. Please try again.";
+    }
 };

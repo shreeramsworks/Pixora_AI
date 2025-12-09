@@ -1,10 +1,12 @@
 
 import React, { useState, useCallback, useEffect, memo, useMemo, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import * as XLSX from 'xlsx';
 import FileUpload from './components/FileUpload';
 import ImageGrid from './components/ImageGrid';
 import ResultsView from './components/ResultsView';
 import Logo from './components/Logo';
+import ChatBot from './components/ChatBot';
 import { UploadedFile, AnalysisResult } from './types';
 import { analyzeImageBatch } from './services/geminiService';
 
@@ -25,100 +27,6 @@ const VIEW_TO_PATH: Record<View, string> = {
   'terms': '/terms',
   'cookie': '/cookies',
   'how-it-works': '/how-it-works'
-};
-
-// --- Excel XML Generator Helper ---
-const generateExcelXML = (results: AnalysisResult) => {
-  const escape = (str: string | undefined | null) => {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
-  };
-
-  const createSheet = (name: string, headers: string[], data: string[][]) => {
-    let sheet = `<Worksheet ss:Name="${name}"><Table>`;
-    
-    // Header Row
-    sheet += '<Row>';
-    headers.forEach(h => {
-      sheet += `<Cell><Data ss:Type="String">${escape(h)}</Data></Cell>`;
-    });
-    sheet += '</Row>';
-    
-    // Data Rows
-    data.forEach(row => {
-      sheet += '<Row>';
-      row.forEach(cell => {
-        sheet += `<Cell><Data ss:Type="String">${escape(cell)}</Data></Cell>`;
-      });
-      sheet += '</Row>';
-    });
-    sheet += '</Table></Worksheet>';
-    return sheet;
-  };
-
-  // 1. General SEO Data
-  const generalHeaders = ['Input Filename', 'SEO Filename', 'Alt Text', 'Title Tag', 'Description', 'Focus Keywords', 'Category', 'Material', 'Color', 'Style'];
-  const generalRows = results.images.map(img => [
-    img.input_filename,
-    img.seo.seo_filename,
-    img.seo.alt_text,
-    img.seo.title || '',
-    img.seo.description || '',
-    img.seo.focus_keywords?.join(', ') || '',
-    img.detected?.category || '',
-    img.detected?.material || '',
-    img.detected?.color || '',
-    img.detected?.style || ''
-  ]);
-
-  // 2. Shopify Data
-  const shopifyHeaders = ['Handle', 'Title', 'Alt Text', 'Tags', 'Metafields (JSON)'];
-  const shopifyRows = results.images.map(img => [
-    img.shopify?.handle || '',
-    img.seo.title || '',
-    img.shopify?.alt_text || img.seo.alt_text,
-    img.seo.tags?.join(', ') || '',
-    img.shopify?.metafields ? JSON.stringify(img.shopify.metafields) : ''
-  ]);
-
-  // 3. Etsy Data
-  const etsyHeaders = ['Title', 'Description', 'Tags (13)', 'Materials'];
-  const etsyRows = results.images.map(img => [
-    img.etsy?.seo_title || '',
-    img.etsy?.description || '',
-    img.etsy?.tags_13?.join(', ') || '',
-    img.detected?.material || ''
-  ]);
-
-  // 4. Amazon Data
-  const amazonHeaders = ['Title', 'Bullet Points', 'Search Terms', 'Main Features'];
-  const amazonRows = results.images.map(img => [
-    img.amazon?.title || '',
-    img.amazon?.bullet_points?.join('\n') || '',
-    img.amazon?.search_terms_keywords?.join(' ') || '',
-    img.amazon?.main_features?.join(', ') || ''
-  ]);
-
-  // Excel 2003 XML format
-  const xmlContent = `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
- ${createSheet('General SEO', generalHeaders, generalRows)}
- ${createSheet('Shopify', shopifyHeaders, shopifyRows)}
- ${createSheet('Etsy', etsyHeaders, etsyRows)}
- ${createSheet('Amazon', amazonHeaders, amazonRows)}
-</Workbook>`;
-
-  return xmlContent;
 };
 
 // --- Blog Data ---
@@ -1004,14 +912,66 @@ const App: React.FC = () => {
   const handleDownloadExcel = useCallback(() => {
     if (!results) return;
 
-    const xmlContent = generateExcelXML(results);
-    const blob = new Blob([xmlContent], { type: 'application/vnd.ms-excel' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `pixora-seo-batch-${Date.now()}.xls`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // 1. General SEO Data
+    const generalHeaders = ['Input Filename', 'SEO Filename', 'Alt Text', 'Title Tag', 'Meta Description (Snippet)', 'Product Description (Content)', 'Focus Keywords', 'Category', 'Material', 'Color', 'Style'];
+    const generalRows = results.images.map(img => [
+      img.input_filename,
+      img.seo.seo_filename,
+      img.seo.alt_text,
+      img.seo.title || '',
+      img.seo.description || '', // Meta description
+      img.seo.product_description || '', // New field
+      img.seo.focus_keywords?.join(', ') || '',
+      img.detected?.category || '',
+      img.detected?.material || '',
+      img.detected?.color || '',
+      img.detected?.style || ''
+    ]);
+
+    // 2. Shopify Data
+    const shopifyHeaders = ['Handle', 'Title', 'Alt Text', 'Tags', 'Metafields (JSON)'];
+    const shopifyRows = results.images.map(img => [
+      img.shopify?.handle || '',
+      img.seo.title || '',
+      img.shopify?.alt_text || img.seo.alt_text,
+      img.seo.tags?.join(', ') || '',
+      img.shopify?.metafields ? JSON.stringify(img.shopify.metafields) : ''
+    ]);
+
+    // 3. Etsy Data
+    const etsyHeaders = ['Title', 'Description', 'Tags (13)', 'Materials'];
+    const etsyRows = results.images.map(img => [
+      img.etsy?.seo_title || '',
+      img.etsy?.description || '',
+      img.etsy?.tags_13?.join(', ') || '',
+      img.detected?.material || ''
+    ]);
+
+    // 4. Amazon Data
+    const amazonHeaders = ['Title', 'Bullet Points', 'Search Terms', 'Main Features'];
+    const amazonRows = results.images.map(img => [
+      img.amazon?.title || '',
+      img.amazon?.bullet_points?.join('\n') || '',
+      img.amazon?.search_terms_keywords?.join(' ') || '',
+      img.amazon?.main_features?.join(', ') || ''
+    ]);
+
+    const wb = XLSX.utils.book_new();
+
+    const wsGeneral = XLSX.utils.aoa_to_sheet([generalHeaders, ...generalRows]);
+    XLSX.utils.book_append_sheet(wb, wsGeneral, "General SEO");
+
+    const wsShopify = XLSX.utils.aoa_to_sheet([shopifyHeaders, ...shopifyRows]);
+    XLSX.utils.book_append_sheet(wb, wsShopify, "Shopify");
+
+    const wsEtsy = XLSX.utils.aoa_to_sheet([etsyHeaders, ...etsyRows]);
+    XLSX.utils.book_append_sheet(wb, wsEtsy, "Etsy");
+
+    const wsAmazon = XLSX.utils.aoa_to_sheet([amazonHeaders, ...amazonRows]);
+    XLSX.utils.book_append_sheet(wb, wsAmazon, "Amazon");
+
+    XLSX.writeFile(wb, `pixora-seo-batch-${Date.now()}.xlsx`);
+
   }, [results]);
 
   const renderContent = () => {
@@ -1479,6 +1439,9 @@ const App: React.FC = () => {
                     <Features />
                 </>
             )}
+            
+            {/* AI Chatbot */}
+            <ChatBot onNavigate={(view) => handleNavigate(view as View)} />
           </>
         );
     }
